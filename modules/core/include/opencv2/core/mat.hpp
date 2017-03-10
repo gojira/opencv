@@ -73,8 +73,8 @@ It is defined as:
     typedef const _InputArray& InputArray;
 @endcode
 where _InputArray is a class that can be constructed from `Mat`, `Mat_<T>`, `Matx<T, m, n>`,
-`std::vector<T>`, `std::vector<std::vector<T> >` or `std::vector<Mat>`. It can also be constructed
-from a matrix expression.
+`std::vector<T>`, `std::vector<std::vector<T> >`, `std::vector<Mat>`, `std::vector<Mat_<T> >`,
+`UMat`, `std::vector<UMat>` or `double`. It can also be constructed from a matrix expression.
 
 Since this is mostly implementation-level class, and its interface may change in future versions, we
 do not describe it in details. There are a few key things, though, that should be kept in mind:
@@ -736,6 +736,8 @@ Finally, there are STL-style iterators that are smart enough to skip gaps betwee
 @endcode
 The matrix iterators are random-access iterators, so they can be passed to any STL algorithm,
 including std::sort().
+
+@note Matrix Expressions and arithmetic see MatExpr
 */
 class CV_EXPORTS Mat
 {
@@ -1079,9 +1081,9 @@ public:
     single-column matrix. Similarly to Mat::row and Mat::col, this is an O(1) operation.
     @param d index of the diagonal, with the following values:
     - `d=0` is the main diagonal.
-    - `d>0` is a diagonal from the lower half. For example, d=1 means the diagonal is set
+    - `d<0` is a diagonal from the lower half. For example, d=-1 means the diagonal is set
       immediately below the main one.
-    - `d<0` is a diagonal from the upper half. For example, d=-1 means the diagonal is set
+    - `d>0` is a diagonal from the upper half. For example, d=1 means the diagonal is set
       immediately above the main one.
      */
     Mat diag(int d=0) const;
@@ -1415,6 +1417,14 @@ public:
     @param sz Number of rows.
      */
     void reserve(size_t sz);
+
+    /** @brief Reserves space for the certain number of bytes.
+
+    The method reserves space for sz bytes. If the matrix already has enough space to store sz bytes,
+    nothing happens. If matrix has to be reallocated its previous content could be lost.
+    @param sz Number of bytes.
+    */
+    void reserveBuffer(size_t sz);
 
     /** @brief Changes the number of matrix rows.
 
@@ -1891,7 +1901,7 @@ public:
 
         // first. raw pointer access.
         for (int r = 0; r < image.rows; ++r) {
-            Pixel* ptr = image.ptr<Pixel>(0, r);
+            Pixel* ptr = image.ptr<Pixel>(r, 0);
             const Pixel* ptr_end = ptr + image.cols;
             for (; ptr != ptr_end; ++ptr) {
                 ptr->x = 255;

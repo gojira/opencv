@@ -683,12 +683,12 @@ public:
     the usual %SVM with parameters specified in params is executed.
      */
     virtual bool trainAuto( const Ptr<TrainData>& data, int kFold = 10,
-                    ParamGrid Cgrid = SVM::getDefaultGrid(SVM::C),
-                    ParamGrid gammaGrid  = SVM::getDefaultGrid(SVM::GAMMA),
-                    ParamGrid pGrid      = SVM::getDefaultGrid(SVM::P),
-                    ParamGrid nuGrid     = SVM::getDefaultGrid(SVM::NU),
-                    ParamGrid coeffGrid  = SVM::getDefaultGrid(SVM::COEF),
-                    ParamGrid degreeGrid = SVM::getDefaultGrid(SVM::DEGREE),
+                    ParamGrid Cgrid = getDefaultGrid(C),
+                    ParamGrid gammaGrid  = getDefaultGrid(GAMMA),
+                    ParamGrid pGrid      = getDefaultGrid(P),
+                    ParamGrid nuGrid     = getDefaultGrid(NU),
+                    ParamGrid coeffGrid  = getDefaultGrid(COEF),
+                    ParamGrid degreeGrid = getDefaultGrid(DEGREE),
                     bool balanced=false) = 0;
 
     /** @brief Retrieves all the support vectors
@@ -1205,6 +1205,17 @@ public:
     returned.
      */
     CV_WRAP virtual Mat getVarImportance() const = 0;
+
+    /** Returns the result of each individual tree in the forest.
+    In case the model is a regression problem, the method will return each of the trees'
+    results for each of the sample cases. If the model is a classifier, it will return
+    a Mat with samples + 1 rows, where the first row gives the class number and the
+    following rows return the votes each class had for each sample.
+        @param samples Array containg the samples for which votes will be calculated.
+        @param results Array where the result of the calculation will be written.
+        @param flags Flags for defining the type of RTrees.
+    */
+    CV_WRAP void getVotes(InputArray samples, OutputArray results, int flags) const;
 
     /** Creates the empty model.
     Use StatModel::train to train the model, StatModel::train to create and train the model,
