@@ -165,7 +165,9 @@ public:
         UMAT              =10 << KIND_SHIFT,
         STD_VECTOR_UMAT   =11 << KIND_SHIFT,
         STD_BOOL_VECTOR   =12 << KIND_SHIFT,
-        STD_VECTOR_CUDA_GPU_MAT = 13 << KIND_SHIFT
+        STD_VECTOR_CUDA_GPU_MAT = 13 << KIND_SHIFT,
+        STD_ARRAY         =14 << KIND_SHIFT,
+        STD_ARRAY_MAT     =15 << KIND_SHIFT
     };
 
     _InputArray();
@@ -188,6 +190,11 @@ public:
     template<typename _Tp> _InputArray(const cudev::GpuMat_<_Tp>& m);
     _InputArray(const UMat& um);
     _InputArray(const std::vector<UMat>& umv);
+
+#ifdef CV_CXX_STD_ARRAY
+    template<typename _Tp, std::size_t _Nm> _InputArray(const std::array<_Tp, _Nm>& arr);
+    template<std::size_t _Nm> _InputArray(const std::array<Mat, _Nm>& arr);
+#endif
 
     Mat getMat(int idx=-1) const;
     Mat getMat_(int idx=-1) const;
@@ -316,6 +323,13 @@ public:
     _OutputArray(const UMat& m);
     _OutputArray(const std::vector<UMat>& vec);
 
+#ifdef CV_CXX_STD_ARRAY
+    template<typename _Tp, std::size_t _Nm> _OutputArray(std::array<_Tp, _Nm>& arr);
+    template<typename _Tp, std::size_t _Nm> _OutputArray(const std::array<_Tp, _Nm>& arr);
+    template<std::size_t _Nm> _OutputArray(std::array<Mat, _Nm>& arr);
+    template<std::size_t _Nm> _OutputArray(const std::array<Mat, _Nm>& arr);
+#endif
+
     bool fixedSize() const;
     bool fixedType() const;
     bool needed() const;
@@ -374,6 +388,14 @@ public:
     template<typename _Tp, int m, int n> _InputOutputArray(const Matx<_Tp, m, n>& matx);
     _InputOutputArray(const UMat& m);
     _InputOutputArray(const std::vector<UMat>& vec);
+
+#ifdef CV_CXX_STD_ARRAY
+    template<typename _Tp, std::size_t _Nm> _InputOutputArray(std::array<_Tp, _Nm>& arr);
+    template<typename _Tp, std::size_t _Nm> _InputOutputArray(const std::array<_Tp, _Nm>& arr);
+    template<std::size_t _Nm> _InputOutputArray(std::array<Mat, _Nm>& arr);
+    template<std::size_t _Nm> _InputOutputArray(const std::array<Mat, _Nm>& arr);
+#endif
+
 };
 
 typedef const _InputArray& InputArray;
@@ -660,7 +682,7 @@ sub-matrices.
 
 - Use MATLAB-style array initializers, zeros(), ones(), eye(), for example:
 @code
-    // create a double-precision identity martix and add it to M.
+    // create a double-precision identity matrix and add it to M.
     M += Mat::eye(M.rows, M.cols, CV_64F);
 @endcode
 
@@ -693,7 +715,7 @@ If you need to process a whole row of a 2D array, the most efficient way is to g
 the row first, and then just use the plain C operator [] :
 @code
     // compute sum of positive matrix elements
-    // (assuming that M isa double-precision matrix)
+    // (assuming that M is a double-precision matrix)
     double sum=0;
     for(int i = 0; i < M.rows; i++)
     {
@@ -955,6 +977,12 @@ public:
     */
     template<typename _Tp> explicit Mat(const std::vector<_Tp>& vec, bool copyData=false);
 
+#ifdef CV_CXX_STD_ARRAY
+    /** @overload
+    */
+    template<typename _Tp, size_t _Nm> explicit Mat(const std::array<_Tp, _Nm>& arr, bool copyData=false);
+#endif
+
     /** @overload
     */
     template<typename _Tp, int n> explicit Mat(const Vec<_Tp, n>& vec, bool copyData=true);
@@ -1085,6 +1113,29 @@ public:
       immediately below the main one.
     - `d>0` is a diagonal from the upper half. For example, d=1 means the diagonal is set
       immediately above the main one.
+    For example:
+    @code
+        Mat m = (Mat_<int>(3,3) <<
+                    1,2,3,
+                    4,5,6,
+                    7,8,9);
+        Mat d0 = m.diag(0);
+        Mat d1 = m.diag(1);
+        Mat d_1 = m.diag(-1);
+    @endcode
+    The resulting matrices are
+    @code
+     d0 =
+       [1;
+        5;
+        9]
+     d1 =
+       [2;
+        6]
+     d_1 =
+       [4;
+        8]
+    @endcode
      */
     Mat diag(int d=0) const;
 
@@ -1191,6 +1242,9 @@ public:
 
     /** @overload */
     Mat reshape(int cn, int newndims, const int* newsz) const;
+
+    /** @overload */
+    Mat reshape(int cn, const std::vector<int>& newshape) const;
 
     /** @brief Transposes a matrix.
 
@@ -1552,6 +1606,10 @@ public:
     template<typename _Tp, int n> operator Vec<_Tp, n>() const;
     template<typename _Tp, int m, int n> operator Matx<_Tp, m, n>() const;
 
+#ifdef CV_CXX_STD_ARRAY
+    template<typename _Tp, std::size_t _Nm> operator std::array<_Tp, _Nm>() const;
+#endif
+
     /** @brief Reports whether the matrix is continuous or not.
 
     The method returns true if the matrix elements are stored continuously without gaps at the end of
@@ -1693,6 +1751,12 @@ public:
     image).
      */
     size_t total() const;
+
+    /** @brief Returns the total number of array elements.
+
+     The method returns the number of elements within a certain sub-array slice with startDim <= dim < endDim
+     */
+    size_t total(int startDim, int endDim=INT_MAX) const;
 
     //! returns N if the matrix is 1-channel (N x ptdim) or ptdim-channel (1 x N) or (N x 1); negative number otherwise
     int checkVector(int elemChannels, int depth=-1, bool requireContinuous=true) const;
@@ -2091,6 +2155,10 @@ public:
     explicit Mat_(const Point3_<typename DataType<_Tp>::channel_type>& pt, bool copyData=true);
     explicit Mat_(const MatCommaInitializer_<_Tp>& commaInitializer);
 
+#ifdef CV_CXX_STD_ARRAY
+    template <std::size_t _Nm> explicit Mat_(const std::array<_Tp, _Nm>& arr, bool copyData=false);
+#endif
+
     Mat_& operator = (const Mat& m);
     Mat_& operator = (const Mat_& m);
     //! set all the elements to s.
@@ -2184,6 +2252,12 @@ public:
 
     //! conversion to vector.
     operator std::vector<_Tp>() const;
+
+#ifdef CV_CXX_STD_ARRAY
+    //! conversion to array.
+    template<std::size_t _Nm> operator std::array<_Tp, _Nm>() const;
+#endif
+
     //! conversion to Vec
     template<int n> operator Vec<typename DataType<_Tp>::channel_type, n>() const;
     //! conversion to Matx
@@ -2258,6 +2332,7 @@ public:
     UMat(const UMat& m, const std::vector<Range>& ranges);
     //! builds matrix from std::vector with or without copying the data
     template<typename _Tp> explicit UMat(const std::vector<_Tp>& vec, bool copyData=false);
+
     //! builds matrix from cv::Vec; the data is copied by default
     template<typename _Tp, int n> explicit UMat(const Vec<_Tp, n>& vec, bool copyData=true);
     //! builds matrix from cv::Matx; the data is copied by default
@@ -2287,9 +2362,9 @@ public:
     UMat colRange(int startcol, int endcol) const;
     UMat colRange(const Range& r) const;
     //! ... for the specified diagonal
-    // (d=0 - the main diagonal,
-    //  >0 - a diagonal from the lower half,
-    //  <0 - a diagonal from the upper half)
+    //! (d=0 - the main diagonal,
+    //!  >0 - a diagonal from the upper half,
+    //!  <0 - a diagonal from the lower half)
     UMat diag(int d=0) const;
     //! constructs a square diagonal matrix which main diagonal is vector "d"
     static UMat diag(const UMat& d);
@@ -2398,6 +2473,10 @@ public:
     UMat& operator = (UMat&& m);
 #endif
 
+    /*! Returns the OpenCL buffer handle on which UMat operates on.
+        The UMat instance should be kept alive during the use of the handle to prevent the buffer to be
+        returned to the OpenCV buffer pool.
+     */
     void* handle(int accessFlags) const;
     void ndoffset(size_t* ofs) const;
 
